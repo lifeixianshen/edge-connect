@@ -197,16 +197,8 @@ class ResnetBlock(nn.Module):
         )
 
     def forward(self, x):
-        out = x + self.conv_block(x)
-
-        # Remove ReLU at the end of the residual block
-        # http://torch.ch/blog/2016/02/04/resnets.html
-
-        return out
+        return x + self.conv_block(x)
 
 
 def spectral_norm(module, mode=True):
-    if mode:
-        return nn.utils.spectral_norm(module)
-
-    return module
+    return nn.utils.spectral_norm(module) if mode else module

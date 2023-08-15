@@ -73,11 +73,7 @@ class Progbar(object):
         self.width = width
         self.verbose = verbose
         self.interval = interval
-        if stateful_metrics:
-            self.stateful_metrics = set(stateful_metrics)
-        else:
-            self.stateful_metrics = set()
-
+        self.stateful_metrics = set(stateful_metrics) if stateful_metrics else set()
         self._dynamic_display = ((hasattr(sys.stdout, 'isatty') and
                                   sys.stdout.isatty()) or
                                  'ipykernel' in sys.modules or
@@ -106,15 +102,14 @@ class Progbar(object):
         for k, v in values:
             if k not in self._values_order:
                 self._values_order.append(k)
-            if k not in self.stateful_metrics:
-                if k not in self._values:
-                    self._values[k] = [v * (current - self._seen_so_far),
-                                       current - self._seen_so_far]
-                else:
-                    self._values[k][0] += v * (current - self._seen_so_far)
-                    self._values[k][1] += (current - self._seen_so_far)
-            else:
+            if k in self.stateful_metrics:
                 self._values[k] = v
+            elif k not in self._values:
+                self._values[k] = [v * (current - self._seen_so_far),
+                                   current - self._seen_so_far]
+            else:
+                self._values[k][0] += v * (current - self._seen_so_far)
+                self._values[k][1] += (current - self._seen_so_far)
         self._seen_so_far = current
 
         now = time.time()
@@ -139,10 +134,7 @@ class Progbar(object):
                 prog_width = int(self.width * prog)
                 if prog_width > 0:
                     bar += ('=' * (prog_width - 1))
-                    if current < self.target:
-                        bar += '>'
-                    else:
-                        bar += '='
+                    bar += '>' if current < self.target else '='
                 bar += ('.' * (self.width - prog_width))
                 bar += ']'
             else:
@@ -151,10 +143,7 @@ class Progbar(object):
             self._total_width = len(bar)
             sys.stdout.write(bar)
 
-            if current:
-                time_per_unit = (now - self._start) / current
-            else:
-                time_per_unit = 0
+            time_per_unit = (now - self._start) / current if current else 0
             if self.target is not None and current < self.target:
                 eta = time_per_unit * (self.target - current)
                 if eta > 3600:
@@ -166,25 +155,21 @@ class Progbar(object):
                 else:
                     eta_format = '%ds' % eta
 
-                info = ' - ETA: %s' % eta_format
+                info = f' - ETA: {eta_format}'
+            elif time_per_unit >= 1:
+                info += ' %.0fs/step' % time_per_unit
+            elif time_per_unit >= 1e-3:
+                info += ' %.0fms/step' % (time_per_unit * 1e3)
             else:
-                if time_per_unit >= 1:
-                    info += ' %.0fs/step' % time_per_unit
-                elif time_per_unit >= 1e-3:
-                    info += ' %.0fms/step' % (time_per_unit * 1e3)
-                else:
-                    info += ' %.0fus/step' % (time_per_unit * 1e6)
+                info += ' %.0fus/step' % (time_per_unit * 1e6)
 
             for k in self._values_order:
-                info += ' - %s:' % k
+                info += f' - {k}:'
                 if isinstance(self._values[k], list):
                     avg = np.mean(self._values[k][0] / max(1, self._values[k][1]))
-                    if abs(avg) > 1e-3:
-                        info += ' %.4f' % avg
-                    else:
-                        info += ' %.4e' % avg
+                    info += ' %.4f' % avg if abs(avg) > 1e-3 else ' %.4e' % avg
                 else:
-                    info += ' %s' % self._values[k]
+                    info += f' {self._values[k]}'
 
             self._total_width += len(info)
             if prev_total_width > self._total_width:
@@ -199,12 +184,9 @@ class Progbar(object):
         elif self.verbose == 2:
             if self.target is None or current >= self.target:
                 for k in self._values_order:
-                    info += ' - %s:' % k
+                    info += f' - {k}:'
                     avg = np.mean(self._values[k][0] / max(1, self._values[k][1]))
-                    if avg > 1e-3:
-                        info += ' %.4f' % avg
-                    else:
-                        info += ' %.4e' % avg
+                    info += ' %.4f' % avg if avg > 1e-3 else ' %.4e' % avg
                 info += '\n'
 
                 sys.stdout.write(info)

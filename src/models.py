@@ -14,12 +14,12 @@ class BaseModel(nn.Module):
         self.config = config
         self.iteration = 0
 
-        self.gen_weights_path = os.path.join(config.PATH, name + '_gen.pth')
-        self.dis_weights_path = os.path.join(config.PATH, name + '_dis.pth')
+        self.gen_weights_path = os.path.join(config.PATH, f'{name}_gen.pth')
+        self.dis_weights_path = os.path.join(config.PATH, f'{name}_dis.pth')
 
     def load(self):
         if os.path.exists(self.gen_weights_path):
-            print('Loading %s generator...' % self.name)
+            print(f'Loading {self.name} generator...')
 
             if torch.cuda.is_available():
                 data = torch.load(self.gen_weights_path)
@@ -31,7 +31,7 @@ class BaseModel(nn.Module):
 
         # load discriminator only when training
         if self.config.MODE == 1 and os.path.exists(self.dis_weights_path):
-            print('Loading %s discriminator...' % self.name)
+            print(f'Loading {self.name} discriminator...')
 
             if torch.cuda.is_available():
                 data = torch.load(self.dis_weights_path)
@@ -116,10 +116,10 @@ class EdgeModel(BaseModel):
         gen_loss += gen_gan_loss
 
 
-        # generator feature matching loss
-        gen_fm_loss = 0
-        for i in range(len(dis_real_feat)):
-            gen_fm_loss += self.l1_loss(gen_fake_feat[i], dis_real_feat[i].detach())
+        gen_fm_loss = sum(
+            self.l1_loss(gen_fake_feat[i], dis_real_feat[i].detach())
+            for i in range(len(dis_real_feat))
+        )
         gen_fm_loss = gen_fm_loss * self.config.FM_LOSS_WEIGHT
         gen_loss += gen_fm_loss
 
@@ -137,8 +137,7 @@ class EdgeModel(BaseModel):
         edges_masked = (edges * (1 - masks))
         images_masked = (images * (1 - masks)) + masks
         inputs = torch.cat((images_masked, edges_masked, masks), dim=1)
-        outputs = self.generator(inputs)                                    # in: [grayscale(1) + edge(1) + mask(1)]
-        return outputs
+        return self.generator(inputs)
 
     def backward(self, gen_loss=None, dis_loss=None):
         if dis_loss is not None:
@@ -249,8 +248,7 @@ class InpaintingModel(BaseModel):
     def forward(self, images, edges, masks):
         images_masked = (images * (1 - masks).float()) + masks
         inputs = torch.cat((images_masked, edges), dim=1)
-        outputs = self.generator(inputs)                                    # in: [rgb(3) + edge(1)]
-        return outputs
+        return self.generator(inputs)
 
     def backward(self, gen_loss=None, dis_loss=None):
         dis_loss.backward()

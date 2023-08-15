@@ -46,7 +46,7 @@ class EdgeConnect():
         if config.DEBUG is not None and config.DEBUG != 0:
             self.debug = True
 
-        self.log_file = os.path.join(config.PATH, 'log_' + model_name + '.dat')
+        self.log_file = os.path.join(config.PATH, f'log_{model_name}.dat')
 
     def load(self):
         if self.config.MODEL == 1:
@@ -63,7 +63,7 @@ class EdgeConnect():
         if self.config.MODEL == 1:
             self.edge_model.save()
 
-        elif self.config.MODEL == 2 or self.config.MODEL == 3:
+        elif self.config.MODEL in [2, 3]:
             self.inpaint_model.save()
 
         else:
@@ -225,10 +225,7 @@ class EdgeConnect():
         self.inpaint_model.eval()
 
         progbar = Progbar(total, width=20, stateful_metrics=['it'])
-        iteration = 0
-
-        for items in val_loader:
-            iteration += 1
+        for iteration, items in enumerate(val_loader, start=1):
             images, images_gray, edges, masks = self.cuda(*items)
 
             # edge model
@@ -305,12 +302,9 @@ class EdgeConnect():
             batch_size=1,
         )
 
-        index = 0
-        for items in test_loader:
+        for index, items in enumerate(test_loader, start=1):
             name = self.test_dataset.load_name(index)
             images, images_gray, edges, masks = self.cuda(*items)
-            index += 1
-
             # edge model
             if model == 1:
                 outputs = self.edge_model(images_gray, edges, masks)
@@ -338,8 +332,8 @@ class EdgeConnect():
                 masked = self.postprocess(images * (1 - masks) + masks)[0]
                 fname, fext = name.split('.')
 
-                imsave(edges, os.path.join(self.results_path, fname + '_edge.' + fext))
-                imsave(masked, os.path.join(self.results_path, fname + '_masked.' + fext))
+                imsave(edges, os.path.join(self.results_path, f'{fname}_edge.{fext}'))
+                imsave(masked, os.path.join(self.results_path, f'{fname}_masked.{fext}'))
 
         print('\nEnd test....')
 
@@ -381,10 +375,7 @@ class EdgeConnect():
         if it is not None:
             iteration = it
 
-        image_per_row = 2
-        if self.config.SAMPLE_SIZE <= 6:
-            image_per_row = 1
-
+        image_per_row = 1 if self.config.SAMPLE_SIZE <= 6 else 2
         images = stitch_images(
             self.postprocess(images),
             self.postprocess(inputs),
@@ -396,7 +387,7 @@ class EdgeConnect():
 
 
         path = os.path.join(self.samples_path, self.model_name)
-        name = os.path.join(path, str(iteration).zfill(5) + ".png")
+        name = os.path.join(path, f"{str(iteration).zfill(5)}.png")
         create_dir(path)
         print('\nsaving sample ' + name)
         images.save(name)

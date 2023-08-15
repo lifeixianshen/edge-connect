@@ -15,8 +15,7 @@ def parse_args():
     parser.add_argument('--data-path', help='Path to ground truth data', type=str)
     parser.add_argument('--output-path', help='Path to output data', type=str)
     parser.add_argument('--debug', default=0, help='Debug', type=int)
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def compare_mae(img_true, img_test):
@@ -27,7 +26,7 @@ def compare_mae(img_true, img_test):
 
 args = parse_args()
 for arg in vars(args):
-    print('[%s] =' % arg, getattr(args, arg))
+    print(f'[{arg}] =', getattr(args, arg))
 
 path_true = args.data_path
 path_pred = args.output_path
@@ -36,15 +35,15 @@ psnr = []
 ssim = []
 mae = []
 names = []
-index = 1
-
-files = list(glob(path_true + '/*.jpg')) + list(glob(path_true + '/*.png'))
-for fn in sorted(files):
+files = list(glob(f'{path_true}/*.jpg')) + list(glob(f'{path_true}/*.png'))
+for index, fn in enumerate(sorted(files), start=1):
     name = basename(str(fn))
     names.append(name)
 
     img_gt = (imread(str(fn)) / 255.0).astype(np.float32)
-    img_pred = (imread(path_pred + '/' + basename(str(fn))) / 255.0).astype(np.float32)
+    img_pred = (imread(f'{path_pred}/{basename(str(fn))}') / 255.0).astype(
+        np.float32
+    )
 
     img_gt = rgb2gray(img_gt)
     img_pred = rgb2gray(img_pred)
@@ -63,14 +62,18 @@ for fn in sorted(files):
     mae.append(compare_mae(img_gt, img_pred))
     if np.mod(index, 100) == 0:
         print(
-            str(index) + ' images processed',
+            f'{str(index)} images processed',
             "PSNR: %.4f" % round(np.mean(psnr), 4),
             "SSIM: %.4f" % round(np.mean(ssim), 4),
             "MAE: %.4f" % round(np.mean(mae), 4),
         )
-    index += 1
-
-np.savez(args.output_path + '/metrics.npz', psnr=psnr, ssim=ssim, mae=mae, names=names)
+np.savez(
+    f'{args.output_path}/metrics.npz',
+    psnr=psnr,
+    ssim=ssim,
+    mae=mae,
+    names=names,
+)
 print(
     "PSNR: %.4f" % round(np.mean(psnr), 4),
     "PSNR Variance: %.4f" % round(np.var(psnr), 4),

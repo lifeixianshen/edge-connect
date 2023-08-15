@@ -25,13 +25,9 @@ class Dataset(torch.utils.data.Dataset):
         self.input_size = config.INPUT_SIZE
         self.sigma = config.SIGMA
         self.edge = config.EDGE
-        self.mask = config.MASK
         self.nms = config.NMS
 
-        # in test mode, there's a one-to-one relationship between mask and image
-        # masks are loaded non random
-        if config.MODE == 2:
-            self.mask = 6
+        self.mask = 6 if config.MODE == 2 else config.MASK
 
     def __len__(self):
         return len(self.data)
@@ -40,7 +36,7 @@ class Dataset(torch.utils.data.Dataset):
         try:
             item = self.load_item(index)
         except:
-            print('loading error: ' + self.data[index])
+            print(f'loading error: {self.data[index]}')
             item = self.load_item(0)
 
         return item
@@ -101,9 +97,8 @@ class Dataset(torch.utils.data.Dataset):
 
             return canny(img, sigma=sigma, mask=mask).astype(np.float)
 
-        # external
         else:
-            imgh, imgw = img.shape[0:2]
+            imgh, imgw = img.shape[:2]
             edge = imread(self.edge_data[index])
             edge = self.resize(edge, imgh, imgw)
 
@@ -114,7 +109,7 @@ class Dataset(torch.utils.data.Dataset):
             return edge
 
     def load_mask(self, img, index):
-        imgh, imgw = img.shape[0:2]
+        imgh, imgw = img.shape[:2]
         mask_type = self.mask
 
         # external + random block
@@ -152,11 +147,10 @@ class Dataset(torch.utils.data.Dataset):
 
     def to_tensor(self, img):
         img = Image.fromarray(img)
-        img_t = F.to_tensor(img).float()
-        return img_t
+        return F.to_tensor(img).float()
 
     def resize(self, img, height, width, centerCrop=True):
-        imgh, imgw = img.shape[0:2]
+        imgh, imgw = img.shape[:2]
 
         if centerCrop and imgh != imgw:
             # center crop
@@ -176,7 +170,7 @@ class Dataset(torch.utils.data.Dataset):
         # flist: image file path, image directory path, text file flist path
         if isinstance(flist, str):
             if os.path.isdir(flist):
-                flist = list(glob.glob(flist + '/*.jpg')) + list(glob.glob(flist + '/*.png'))
+                flist = list(glob.glob(f'{flist}/*.jpg')) + list(glob.glob(f'{flist}/*.png'))
                 flist.sort()
                 return flist
 
@@ -190,11 +184,6 @@ class Dataset(torch.utils.data.Dataset):
 
     def create_iterator(self, batch_size):
         while True:
-            sample_loader = DataLoader(
-                dataset=self,
-                batch_size=batch_size,
-                drop_last=True
+            yield from DataLoader(
+                dataset=self, batch_size=batch_size, drop_last=True
             )
-
-            for item in sample_loader:
-                yield item

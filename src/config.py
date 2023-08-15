@@ -12,10 +12,7 @@ class Config(dict):
         if self._dict.get(name) is not None:
             return self._dict[name]
 
-        if DEFAULT_CONFIG.get(name) is not None:
-            return DEFAULT_CONFIG[name]
-
-        return None
+        return DEFAULT_CONFIG[name] if DEFAULT_CONFIG.get(name) is not None else None
 
     def print(self):
         print('Model configurations:')
